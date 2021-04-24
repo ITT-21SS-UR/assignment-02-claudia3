@@ -1,3 +1,4 @@
-.vscode/*
-.oldCalculatorWithoutModel/*
-.__pycache__/*
+.vscode/
+.__pycache__/
+oldCalculatorWithoutModel/
+

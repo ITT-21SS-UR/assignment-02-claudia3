@@ -78,9 +78,9 @@
        </widget>
       </item>
       <item row="0" column="0" colspan="2">
-       <widget class="QPushButton" name="buttonAC">
+       <widget class="QPushButton" name="buttonDel">
         <property name="text">
-         <string>AC</string>
+         <string>DEL</string>
         </property>
        </widget>
       </item>
@@ -191,14 +191,14 @@
      <x>0</x>
      <y>0</y>
      <width>409</width>
-     <height>30</height>
+     <height>24</height>
     </rect>
    </property>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
  <tabstops>
-  <tabstop>buttonAC</tabstop>
+  <tabstop>buttonDel</tabstop>
   <tabstop>buttonC</tabstop>
   <tabstop>buttonDivision</tabstop>
   <tabstop>button7</tabstop>

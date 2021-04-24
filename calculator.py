@@ -1,6 +1,6 @@
 import sys
 
-from PyQt5 import uic, Qt
+from PyQt5 import uic, Qt, QtCore
 from PyQt5.QtWidgets import QMainWindow
 from calculator_model import CalculatorModel
 
@@ -20,8 +20,7 @@ class Calculator(QMainWindow):
     def __setup_ui(self):
         self.__setup_button_numbers()
         self.__setup_button_operators()
-        self.__setup_button_extra()
-        self.__setup_key_press()
+        self.__setup_button_special()
         self.__setup_display()
 
     def __setup_button_numbers(self):
@@ -48,14 +47,10 @@ class Calculator(QMainWindow):
         self.window.buttonMultiplication.clicked.connect(
             lambda: self.model.button_clicked("*"))
 
-    def __setup_button_extra(self):
-        self.window.buttonAC.clicked.connect(self.model.clear_all)
-        self.window.buttonC.clicked.connect(self.model.clear)
-        self.window.buttonEquals.clicked.connect(self.model.calculate_result)
-
-    # TODO handle key input event it is not working with model before it worked
-    def __setup_key_press(self):
-        pass  # TODO
+    def __setup_button_special(self):
+        self.window.buttonC.clicked.connect(lambda: self.model.button_clicked_special("C"))
+        self.window.buttonDel.clicked.connect(lambda: self.model.button_clicked_special("DEL"))
+        self.window.buttonEquals.clicked.connect(lambda: self.model.button_clicked_special("="))
 
     def __data_changed(self):
         self.window.lcdNumber.display(self.model.get_current_number())
@@ -64,9 +59,20 @@ class Calculator(QMainWindow):
     def __setup_display(self):
         self.model.data_changed.connect(self.__data_changed)
 
+    def keyPressEvent(self, pressed_key):
+        pressed_key_code = pressed_key.key()
 
-# https://pythonpyqt.com/pyqt-events/
-# used for the base class structure
+        if self.model.is_accepted_key_code(pressed_key_code):
+            self.model.key_pressed_event(pressed_key.text())
+        elif self.model.is_special_key(pressed_key_code):
+            if pressed_key_code == QtCore.Qt.Key_Return or pressed_key_code == QtCore.Qt.Key_Enter:
+                pressed_key_code = "Enter"
+            elif pressed_key_code == QtCore.Qt.Key_Delete or pressed_key_code == QtCore.Qt.Key_Backspace:
+                pressed_key_code = "Delete"
+
+            self.model.key_pressed_event_special(pressed_key_code)
+
+
 if __name__ == "__main__":
     app = Qt.QApplication(sys.argv)
     calculator = Calculator()
