@@ -4,10 +4,8 @@ from PyQt5 import uic, Qt, QtCore
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QKeyEvent
 
-"""
-    The model saves and processes relevant data for the calculator UI.
-"""
 
+# The model saves and processes relevant data for the calculator.
 
 class CalculatorModel(QObject):
     # https://www.pythoncentral.io/pysidepyqt-tutorial-creating-your-own-signals-and-slots/
@@ -17,43 +15,34 @@ class CalculatorModel(QObject):
     def __init__(self):
         super().__init__()
 
-        self.equation = ""
-        self.current_number = ""
+        self.DELETE = "Delete"
+        self.CLEAR = "Clear"
+        self.CALCULATE = "Calculate"
+
+        self.__equation = ""
+        self.__current_number = ""
 
     @staticmethod
-    def convert_to_key_code(text: str):
-        if text == "+":
+    def __convert_to_key_code(value: str):
+        if value == "+":
             return QtCore.Qt.Key_Plus
 
-        if text == "-":
+        if value == "-":
             return QtCore.Qt.Key_Minus
 
-        if text == "/":
+        if value == "/":
             return QtCore.Qt.Key_Slash
 
-        if text == "*":
+        if value == "*":
             return QtCore.Qt.Key_Asterisk
 
-        if text == ".":
+        if value == ".":
             return QtCore.Qt.Key_Period
 
-        return text
-
-    def is_operator(self, key_code):
-        operators = [
-            QtCore.Qt.Key_Plus,
-            QtCore.Qt.Key_Minus,
-            QtCore.Qt.Key_Asterisk,
-            QtCore.Qt.Key_Slash
-        ]
-
-        if self.convert_to_key_code(key_code) in operators:
-            return True
-
-        return False
+        return value
 
     @staticmethod
-    def is_digit(key_code):
+    def __is_digit(key_code):
         digits = [
             QtCore.Qt.Key_0,
             QtCore.Qt.Key_1,
@@ -73,25 +62,87 @@ class CalculatorModel(QObject):
         return False
 
     @staticmethod
-    def is_decimal_point(key_code):
+    def __is_decimal_point(key_code):
         return key_code == QtCore.Qt.Key_Period
 
-    @staticmethod
-    def is_special_key(key_code):
-        special_keys = [
-            QtCore.Qt.Key_Return,
-            QtCore.Qt.Key_Enter,
-            QtCore.Qt.Key_Backspace,
-            QtCore.Qt.Key_Delete
+    def __is_operator(self, value: str):
+        operators = [
+            QtCore.Qt.Key_Plus,
+            QtCore.Qt.Key_Minus,
+            QtCore.Qt.Key_Asterisk,
+            QtCore.Qt.Key_Slash
         ]
 
-        if key_code in special_keys:
+        if self.__convert_to_key_code(value) in operators:
             return True
 
         return False
 
-    def is_accepted_key_code(self, key_code):
-        return self.is_digit(key_code) or self.is_operator(key_code) or self.is_decimal_point(key_code)
+    def __is_key_allowed(self, value: str):
+        key_code = self.__convert_to_key_code(value)
+
+        if self.__is_decimal_point(key_code) \
+                and (self.__current_number.__contains__(".")):
+
+            return False
+
+        return True
+
+    def __handle_input(self, value: str):
+        if value == self.CLEAR:
+            self.__clear_all()
+
+        elif value == self.DELETE:
+            self.__delete()
+
+        elif value == self.CALCULATE:
+            self.__calculate_result()
+
+        else:
+            self.__handle_key(value)
+
+    def __handle_key(self, value: str):
+        if not self.__is_key_allowed(value):
+            return
+
+        if self.__is_operator(value):
+            if self.__equation and self.__is_operator(self.__equation[-1]):
+                # if the last character of equation is an operator: replace it with the new operator
+                self.__equation = self.__equation[:-1]
+
+            self.__current_number = ""
+        else:
+            self.__current_number += value
+
+        self.__equation += value
+
+        self.data_changed.emit()
+
+    def __delete(self):
+        if self.__current_number:
+            self.__equation = self.__equation[:-1]
+            self.__current_number = self.__current_number[:-1]
+
+        self.data_changed.emit()
+
+    def __clear_all(self):
+        self.__equation = ""
+        self.__current_number = ""
+
+        self.data_changed.emit()
+
+    def __calculate_result(self):
+        try:
+            self.__current_number = str(round(eval(self.__equation), 9))
+            # without round eval cannot calculate correctly: 0.3+0.3+0.3=0.8999999...1
+            # also without string conversion the result looks weird
+        except SyntaxError:
+            self.__current_number = "Err"
+
+        self.data_changed.emit()
+
+        self.__equation = ""
+        self.__current_number = ""
 
     def log_message(message):
         def log_decorator(function):
@@ -103,93 +154,55 @@ class CalculatorModel(QObject):
 
         return log_decorator
 
-    def handle_key(self, value):
-        if not self.is_key_allowed(value):
-            return
+    @staticmethod
+    def is_accepted_key_code_special(key_code):
 
-        self.equation += value
+        special_keys = [
+            QtCore.Qt.Key_Delete,
+            QtCore.Qt.Key_Backspace,
+            QtCore.Qt.Key_Escape,
+            QtCore.Qt.Key_Return,
+            QtCore.Qt.Key_Enter,
+            QtCore.Qt.Key_Equal
+        ]
 
-        if self.is_operator(value):
-            self.current_number = ""
-        else:
-            self.current_number += value
+        if key_code in special_keys:
+            return True
 
-        self.data_changed.emit()
+        return False
 
-    def is_key_allowed(self, value):
-        key_code = self.convert_to_key_code(value)
+    def is_accepted_key_code(self, key_code):
+        return self.__is_digit(key_code) \
+               or self.__is_operator(key_code) \
+               or self.__is_decimal_point(key_code)
 
-        # TODO maybe change last operator aber nicht in der aktuellen funktion, da sonst code smell
-        if self.is_operator(key_code) and ((not self.current_number) or (self.equation[-1] == value)):
-            # TODO Maybe with endswitch
-            return False  # TODO die bedingung geht nicht, da verschiedene operatoren aneinander gehängt werden können nur der gleiche ned
+    def convert_to_text(self, key_code):
+        if key_code == QtCore.Qt.Key_Delete \
+                or key_code == QtCore.Qt.Key_Backspace:
 
-        if self.is_decimal_point(key_code) and (self.current_number.__contains__(".")):
-            return False  # TODO use sth other than contains in python this is not good
+            return self.DELETE
 
-        return True
+        if key_code == QtCore.Qt.Key_Escape:
+            return self.CLEAR
+
+        if key_code == QtCore.Qt.Key_Return \
+                or key_code == QtCore.Qt.Key_Enter:
+
+            return self.CALCULATE
 
     @log_message("Button clicked: ")
-    def button_clicked(self, value: str):
-        self.handle_key(value)
-
-    @log_message("Special Button clicked: ")
-    def button_clicked_special(self, value: str):
-        if value == "C":
-            self.clear_all()
-        elif value == "DEL":
-            self.delete()
-        elif value == "=":
-            self.calculate_result()
-
-    def get_current_number(self):
-        if not self.current_number:
-            return "0"
-
-        return self.current_number
-
-    def get_equation(self):
-        return self.equation
-
-    def delete(self):
-        if self.current_number:  # len(self.current_number) and len(self.equation) > 1 is redundant
-            self.equation = self.equation[:-1]  # TODO current_number remove only when real number
-            self.current_number = self.current_number[:-1]
-
-        self.data_changed.emit()
-
-    @log_message("Calculated Result: ")
-    def log_calculated_result(self, result):
-        # This looks pretty ugly but we have to use logging like this so I did it like this
-        return
-
-    def calculate_result(self):
-        try:
-            self.current_number = str(eval(self.equation))
-        except SyntaxError:
-            self.current_number = "Err"
-
-        self.log_calculated_result(self.current_number)
-
-        self.data_changed.emit()
-
-        self.equation = ""
-        self.current_number = ""
-
-    def clear_all(self):
-        self.equation = ""
-        self.current_number = ""
-
-        self.data_changed.emit()
+    def button_clicked(self, value):
+        self.__handle_input(value)
 
     @log_message("Key pressed: ")
     def key_pressed_event(self, key_pressed):
-        self.handle_key(str(key_pressed))
+        self.__handle_input(str(key_pressed))
 
-    @log_message("Special key pressed: ")
-    def key_pressed_event_special(self, key_pressed):
-        if key_pressed == "Enter":
-            self.calculate_result()
+    def get_current_number(self):
+        if not self.__current_number:
+            return "0"
 
-        elif key_pressed == "Delete":
-            self.delete()
+        return self.__current_number
+
+    def get_equation(self):
+        return self.__equation
