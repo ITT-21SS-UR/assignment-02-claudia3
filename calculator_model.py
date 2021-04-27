@@ -133,16 +133,14 @@ class CalculatorModel(QObject):
 
     def __calculate_result(self):
         try:
-            self.__current_number = str(round(eval(self.__equation), 9))
+            self.__current_number = str(round(eval(self.__equation), 14))
             # without round eval cannot calculate correctly: 0.3+0.3+0.3=0.8999999...1
             # also without string conversion the result looks weird
+            # LCD Display only shows 20 digits
         except SyntaxError:
             self.__current_number = "Err"
 
-        self.data_changed.emit()
-
-        self.__equation = ""
-        self.__current_number = ""
+        self.__handle_result(self.__current_number)
 
     def log_message(message):
         def log_decorator(function):
@@ -153,6 +151,13 @@ class CalculatorModel(QObject):
             return log_function
 
         return log_decorator
+
+    @log_message("Result: ")
+    def __handle_result(self, result: str):
+        self.data_changed.emit()
+
+        self.__equation = ""
+        self.__current_number = ""
 
     @staticmethod
     def is_accepted_key_code_special(key_code):
